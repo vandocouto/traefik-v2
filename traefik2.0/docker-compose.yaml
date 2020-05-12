@@ -1,0 +1,51 @@
+version: "3.3"
+
+services:
+
+  traefik:
+    image: "traefik:v2.0.0-rc3"
+    ports: 
+        - "80:80"       #http
+        - "8080:8080"   #dashboard
+        - "443:443"     #https
+    deploy:
+     mode: global
+     placement:
+      constraints:
+        - node.role == manager
+     restart_policy:
+      condition: on-failure
+    command:
+        # CLI commands that will configure
+        - --api.insecure=true 
+        - --api.dashboard=true 
+        - --api.debug=true 
+        - --log.level=DEBUG 
+        - --providers.docker=true
+        - --providers.docker.swarmMode=true
+        - --providers.docker.exposedbydefault=false
+        - --providers.docker.network=proxy
+        - --entrypoints.web.address=:80
+        - --entrypoints.web-secured.address=:443
+        - --certificatesresolvers.mytlschallenge.acme.httpChallenge.entrypoint=web
+        - --certificatesresolvers.mytlschallenge.acme.email=evandro@vye2cloud.com
+        - --certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json
+        - --providers.file.filename=/dynamic.yaml
+    networks:
+        - vye2cloud
+    volumes:
+        - "/var/run/docker.sock:/var/run/docker.sock:ro"
+        - ./letsencrypt:/letsencrypt
+        - ./dynamic.yaml:/dynamic.yaml
+    logging:
+     driver: "json-file"
+     options:
+       max-size: "250m"
+       max-file: "3"
+
+networks:
+ vye2cloud:
+  driver: overlay
+  ipam:
+   config:
+    - subnet: 10.11.0.0/24
